@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -48,6 +49,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		LINKS_PAGE_ACCEPTED,
 		LINKS_TOTAL,
 		LINKS_MEDIA_SKIPPED,
+		LINKS_UNSAFE_SKIPPED,
 		LINKS_PAGE_UNIQ,
 		LINKS_PAGE_UNIQ_ACCEPTED,
 		LINKS_PAGE_UNIQ_SKIPPED_MAX_PER_PAGE,
@@ -56,10 +58,15 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		LINKS_MALFORMED_URL
 	}
 
+	private static final Pattern dataUriPattern = Pattern.compile("@/data-(?:href|uri)$");
+	private static final Pattern globalLinkPattern = Pattern.compile("^(?:[a-z][a-z0-9]{1,5}:)?//");
+
 	protected static class OutLinkMapper extends Mapper<Text, ArchiveReader, Text, LongWritable> {
 		private Text outKey = new Text();
 		private LongWritable outVal = new LongWritable(1);
+		private LongWritable one = new LongWritable(1);
 		int maxOutlinksPerPage = 80;
+		boolean outlinksWeightedCount = false;
 		boolean extractFeed = false;
 		String extractFeedMarker = "";
 
@@ -67,6 +74,12 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		public void setup(Context context) {
 			Configuration conf = context.getConfiguration();
 			maxOutlinksPerPage = conf.getInt("wat.outlinks.max.per.page", 80);
+			/**
+			 * weighted link counts: each page can distributed `wat.outlinks.max.per.page`
+			 * points, links from pages with many links get a lower weight, the weight is
+			 * calculated as `wat.outlinks.max.per.page / num_links_of_page`
+			 */
+			outlinksWeightedCount = conf.getBoolean("wat.outlinks.weighted.count", false);
 			extractFeed = conf.getBoolean("wat.outlinks.extract.feed", false);
 			extractFeedMarker = conf.get("wat.outlinks.extract.feed.marker", "");
 		}
@@ -92,6 +105,10 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						}
 						context.getCounter(COUNTER.RESPONSE_RECORDS).increment(1);
 						String base = warcHeader.getString("WARC-Target-URI");
+						if (base.charAt(0) == '<') {
+							// some WARC file enclose the WARC-Target-URI in <...>
+							base = base.substring(1, (base.length()-2));
+						}
 						URL baseUrl = new URL(base);
 						JSONObject responseMetaData = json.getJSONObject("Envelope")
 								.getJSONObject("Payload-Metadata")
@@ -139,6 +156,13 @@ public class WATSampleOutLinks extends Configured implements Tool {
 							addOutLinks(context, outLinks, baseUrl, links);
 						}
 						context.getCounter(COUNTER.LINKS_PAGE_UNIQ).increment(outLinks.size());
+						if (outlinksWeightedCount) {
+							if (outLinks.size() >= maxOutlinksPerPage) {
+								outVal = one;
+							} else {
+								outVal = new LongWritable(Math.round(1.0d * maxOutlinksPerPage / outLinks.size()));
+							}
+						}
 						int n = 0;
 						for (String url : outLinks) {
 							n++;
@@ -179,6 +203,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 				if (link.has("url") && link.has("path")) {
 					String linkTypeMarker = "";
 					String path = link.getString("path");
+					String urlStr = link.getString("url");
 					path:
 					switch(path) {
 					case "A@/href":
@@ -216,10 +241,21 @@ public class WATSampleOutLinks extends Configured implements Tool {
 							}
 						}
 						break;
+					default:
+						if (dataUriPattern.matcher(path).find()) {
+							if (globalLinkPattern.matcher(urlStr).find()) {
+								// ok, it's a global link, should work
+							} else {
+								// relative links in data-* attributes are not safe because
+								// Javascript is required to make them absolute/global
+								context.getCounter(COUNTER.LINKS_UNSAFE_SKIPPED).increment(1);
+								continue links;
+							}
+						}
 					}
 					context.getCounter(COUNTER.LINKS_PAGE_ACCEPTED).increment(1);
 					try {
-						URL url = new URL(baseUrl, link.getString("url"));
+						URL url = new URL(baseUrl, urlStr);
 						outLinks.add(linkTypeMarker + url.toString());
 					} catch (MalformedURLException ex) {
 						context.getCounter(COUNTER.LINKS_MALFORMED_URL).increment(1);
