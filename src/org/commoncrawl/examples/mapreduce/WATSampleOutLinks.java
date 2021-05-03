@@ -55,7 +55,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		LINKS_PAGE_UNIQ_SKIPPED_MAX_PER_PAGE,
 		LINKS_RANDOM_SKIP,
 		LINKS_RANDOM_SAMPLED,
-		LINKS_MALFORMED_URL
+		LINKS_MALFORMED_URL,
+		LINKS_UNSAFE_TEXT_SKIPPED /** URL contains tab or newline character */
 	}
 
 	private static final Pattern dataUriPattern = Pattern.compile("@/data-(?:href|uri)$");
@@ -296,9 +297,25 @@ public class WATSampleOutLinks extends Configured implements Tool {
 			sampleProbability = (1.0 - sampleProbability);
 		}
 
+		public static boolean isSafeText(Text text) {
+			for (byte b : text.getBytes()) {
+				switch (b) {
+					case (byte) '\t':
+					case (byte) '\r':
+					case (byte) '\n':
+						return false;
+				}
+			}
+			return true;
+		}
+
 		@Override
 		public void reduce(Text key, Iterable<LongWritable> values,
 				Context context) throws IOException, InterruptedException {
+			if (!isSafeText(key)) {
+				context.getCounter(COUNTER.LINKS_UNSAFE_TEXT_SKIPPED).increment(1);
+				return;
+			}
 			long sum = 0;
 			for (LongWritable val : values) {
 				sum += val.get();
