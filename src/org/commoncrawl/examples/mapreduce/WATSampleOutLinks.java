@@ -270,9 +270,25 @@ public class WATSampleOutLinks extends Configured implements Tool {
 	protected static class OutLinkCombiner extends Reducer<Text, LongWritable, Text, LongWritable> {
 		private LongWritable outVal = new LongWritable(1);
 
+		public static boolean isSafeText(Text text) {
+			for (byte b : text.getBytes()) {
+				switch (b) {
+					case (byte) '\t':
+					case (byte) '\r':
+					case (byte) '\n':
+						return false;
+				}
+			}
+			return true;
+		}
+
 		@Override
 		public void reduce(Text key, Iterable<LongWritable> values,
 				Context context) throws IOException, InterruptedException {
+			if (!isSafeText(key)) {
+				context.getCounter(COUNTER.LINKS_UNSAFE_TEXT_SKIPPED).increment(1);
+				return;
+			}
 			long sum = 0;
 			for (LongWritable val : values) {
 				sum += val.get();
@@ -283,7 +299,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 
 	}
 
-	protected static class OutLinkReducer extends Reducer<Text, LongWritable, Text, LongWritable> {
+	protected static class OutLinkReducer extends OutLinkCombiner {
 
 		private double sampleProbability = .5;
 		private LongWritable outVal = new LongWritable(1);
@@ -295,18 +311,6 @@ public class WATSampleOutLinks extends Configured implements Tool {
 			// invert sample probability for comparison with random number (0.0 <= random < 1.0)
 			// choose link if random number is greater than or equal inverted probability
 			sampleProbability = (1.0 - sampleProbability);
-		}
-
-		public static boolean isSafeText(Text text) {
-			for (byte b : text.getBytes()) {
-				switch (b) {
-					case (byte) '\t':
-					case (byte) '\r':
-					case (byte) '\n':
-						return false;
-				}
-			}
-			return true;
 		}
 
 		@Override
