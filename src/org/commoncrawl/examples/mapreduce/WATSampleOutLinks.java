@@ -270,14 +270,16 @@ public class WATSampleOutLinks extends Configured implements Tool {
 	protected static class OutLinkCombiner extends Reducer<Text, LongWritable, Text, LongWritable> {
 		private LongWritable outVal = new LongWritable(1);
 
+		/**
+		 * @return true if text is safe and does not contain any control
+		 *         characters (U+0000 - U+001F) including '\t', '\r', '\n'
+		 */
 		public static boolean isSafeText(Text text) {
 			for (byte b : text.getBytes()) {
-				switch (b) {
-					case (byte) '\t':
-					case (byte) '\r':
-					case (byte) '\n':
-						return false;
-				}
+			    if ((b & ~((byte) 0x1F)) == 0) {
+			        // none of the leading 3 bits is set: 0x00 <= b <= 0x1F
+			        return false;
+			    }
 			}
 			return true;
 		}
