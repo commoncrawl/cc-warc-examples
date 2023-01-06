@@ -43,12 +43,15 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		RECORDS,
 		RESPONSE_RECORDS,
 		RECORDS_NON_HTML,
+		RECORDS_NOFOLLOW_X_ROBOTS_SKIPPED,
+		RECORDS_NOFOLLOW_META_SKIPPED,
 		EXCEPTIONS,
 		EXCEPTIONS_JSON,
 		EXCEPTIONS_URL_MALFORMED,
 		LINKS_PAGE_ACCEPTED,
 		LINKS_TOTAL,
 		LINKS_MEDIA_SKIPPED,
+		LINKS_REL_NOFOLLOW_SKIPPED,
 		LINKS_UNSAFE_SKIPPED,
 		LINKS_PAGE_UNIQ,
 		LINKS_PAGE_UNIQ_ACCEPTED,
@@ -61,6 +64,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 
 	private static final Pattern dataUriPattern = Pattern.compile("@/data-(?:href|uri)$");
 	private static final Pattern globalLinkPattern = Pattern.compile("^(?:[a-z][a-z0-9]{1,5}:)?//");
+	private static Pattern nofollowPattern = Pattern.compile("\\bnofollow\\b", Pattern.CASE_INSENSITIVE);
+
 
 	protected static class OutLinkMapper extends Mapper<Text, ArchiveReader, Text, LongWritable> {
 		private Text outKey = new Text();
@@ -68,6 +73,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		private LongWritable one = new LongWritable(1);
 		int maxOutlinksPerPage = 80;
 		boolean outlinksWeightedCount = false;
+		boolean respectNofollow = false;
 		boolean extractFeed = false;
 		String extractFeedMarker = "";
 
@@ -83,14 +89,16 @@ public class WATSampleOutLinks extends Configured implements Tool {
 			outlinksWeightedCount = conf.getBoolean("wat.outlinks.weighted.count", false);
 			extractFeed = conf.getBoolean("wat.outlinks.extract.feed", false);
 			extractFeedMarker = conf.get("wat.outlinks.extract.feed.marker", "");
+			respectNofollow = conf.getBoolean("wat.outlinks.respect.nofollow", false);
 		}
 
 		@Override
 		public void map(Text key, ArchiveReader value, Context context) throws IOException {
+			record:
 			for (ArchiveRecord r : value) {
 				// Skip any records that are not JSON
 				if (!r.getHeader().getMimetype().equals("application/json")) {
-					continue;
+					continue record;
 				}
 				try {
 					context.getCounter(COUNTER.RECORDS).increment(1);
@@ -102,7 +110,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						JSONObject warcHeader = json.getJSONObject("Envelope").getJSONObject("WARC-Header-Metadata");
 						String warcType = warcHeader.getString("WARC-Type");
 						if (!warcType.equals("response")) {
-							continue;
+							continue record;
 						}
 						context.getCounter(COUNTER.RESPONSE_RECORDS).increment(1);
 						String base = warcHeader.getString("WARC-Target-URI");
@@ -114,12 +122,29 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						JSONObject responseMetaData = json.getJSONObject("Envelope")
 								.getJSONObject("Payload-Metadata")
 								.getJSONObject("HTTP-Response-Metadata");
+						if (respectNofollow) {
+							// check HTTP header "X-Robots-Tag", eg.
+							// X-Robots-Tag: noindex, nofollow
+							JSONObject httpHeaders = responseMetaData.getJSONObject("Headers");
+							JSONArray httpHeaderNames = httpHeaders.names();
+							for (int i = 0, l = httpHeaders.length(); i < l; i++) {
+								String headerName = httpHeaderNames.getString(i);
+								if (headerName.equalsIgnoreCase("x-robots-tag")) {
+									String headerValue = httpHeaders.getString(headerName);
+									if (nofollowPattern.matcher(headerValue).find()) {
+										context.getCounter(COUNTER.RECORDS_NOFOLLOW_X_ROBOTS_SKIPPED).increment(1);
+										continue record;
+									}
+									break; // no need to iterate over further HTTP headers
+								}
+							}
+						}
 						if (!responseMetaData.has("HTML-Metadata")) {
 							context.getCounter(COUNTER.RECORDS_NON_HTML).increment(1);
-							continue;
+							continue record;
 						}
-						Set<String> outLinks = new HashSet<>();
 						JSONObject htmlMetaData = responseMetaData.getJSONObject("HTML-Metadata");
+						Set<String> outLinks = new HashSet<>();
 						if (htmlMetaData.has("Head")) {
 							JSONObject head = htmlMetaData.getJSONObject("Head");
 							if (head.has("Base")) {
@@ -130,10 +155,6 @@ public class WATSampleOutLinks extends Configured implements Tool {
 								} catch (MalformedURLException ex) {
 									LOG.error("Ignoring malformed base URL '" + base + "': " + ex.getMessage());
 								}
-							}
-							if (head.has("Link")) {
-								// <link ...>
-								addOutLinks(context, outLinks, baseUrl, head.getJSONArray("Link"));
 							}
 							if (head.has("Metas")) {
 								JSONArray metas = head.getJSONArray("Metas");
@@ -149,7 +170,18 @@ public class WATSampleOutLinks extends Configured implements Tool {
 											context.getCounter(COUNTER.LINKS_MALFORMED_URL).increment(1);
 										}
 									}
+									if (respectNofollow && meta.has("name") && meta.getString("name").equalsIgnoreCase("robots")) {
+										// check HTML meta "robots"
+										if (meta.has("content") && nofollowPattern.matcher(meta.getString("content")).find()) {
+											context.getCounter(COUNTER.RECORDS_NOFOLLOW_META_SKIPPED).increment(1);
+											continue record;
+										}
+									}
 								}
+							}
+							if (head.has("Link")) {
+								// <link ...>
+								addOutLinks(context, outLinks, baseUrl, head.getJSONArray("Link"));
 							}
 						}
 						if (htmlMetaData.has("Links")) {
@@ -206,9 +238,13 @@ public class WATSampleOutLinks extends Configured implements Tool {
 					String path = link.getString("path");
 					String urlStr = link.getString("url");
 					path:
-					switch(path) {
-					case "A@/href":
-						break ;
+					switch (path) {
+						case "A@/href":
+						if (respectNofollow && link.has("rel") && nofollowPattern.matcher(link.getString("rel")).find()) {
+							context.getCounter(COUNTER.LINKS_REL_NOFOLLOW_SKIPPED).increment(1);
+							continue links;
+						}
+						break path;
 					case "IMG@/src":
 					case "FORM@/action":
 					case "TD@/background":
@@ -241,7 +277,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 								continue links;
 							}
 						}
-						break;
+						break path;
 					default:
 						if (dataUriPattern.matcher(path).find()) {
 							if (globalLinkPattern.matcher(urlStr).find()) {
@@ -272,14 +308,14 @@ public class WATSampleOutLinks extends Configured implements Tool {
 
 		/**
 		 * @return true if text is safe and does not contain any control
-		 *         characters (U+0000 - U+001F) including '\t', '\r', '\n'
+		 *	   characters (U+0000 - U+001F) including '\t', '\r', '\n'
 		 */
 		public static boolean isSafeText(Text text) {
 			for (byte b : text.getBytes()) {
-			    if ((b & ~((byte) 0x1F)) == 0) {
-			        // none of the leading 3 bits is set: 0x00 <= b <= 0x1F
-			        return false;
-			    }
+				if ((b & ~((byte) 0x1F)) == 0) {
+					// none of the leading 3 bits is set: 0x00 <= b <= 0x1F
+					return false;
+				}
 			}
 			return true;
 		}
@@ -346,6 +382,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 			System.err.println("  \t\tprobability (0.0 < prob <= 1.0) to select an outlink");
 			System.err.println("  -Dwat.outlinks.max.per.page=n");
 			System.err.println("  \t\tmax. number of accepted outlinks per page");
+			System.err.println("  -Dwat.outlinks.respect.nofollow=<true|false>");
+			System.err.println("  \t\twhether to respect the nofollow link attribute");
 			return -1;
 		}
 		Path outputPath = null;
