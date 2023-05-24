@@ -76,6 +76,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		boolean respectNofollow = false;
 		boolean extractFeed = false;
 		String extractFeedMarker = "";
+		Pattern nofollowBotPattern = null;
 
 		@Override
 		public void setup(Context context) {
@@ -90,6 +91,16 @@ public class WATSampleOutLinks extends Configured implements Tool {
 			extractFeed = conf.getBoolean("wat.outlinks.extract.feed", false);
 			extractFeedMarker = conf.get("wat.outlinks.extract.feed.marker", "");
 			respectNofollow = conf.getBoolean("wat.outlinks.respect.nofollow", false);
+			if (respectNofollow) {
+				String nofollowBotPatternString = conf.get("wat.outlinks.respect.nofollow.bot.pattern", "");
+				if (!nofollowBotPatternString.isBlank()) {
+					try {
+						nofollowBotPattern = Pattern.compile("\\s*" + nofollowBotPatternString + "\\s*");
+					} catch (IllegalArgumentException e) {
+						LOG.error("Failed to compile wat.outlinks.respect.nofollow.bot.pattern", e);
+					}
+				}
+			}
 		}
 
 		@Override
@@ -125,6 +136,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						if (respectNofollow) {
 							// check HTTP header "X-Robots-Tag", eg.
 							// X-Robots-Tag: noindex, nofollow
+							// Note: only the first Header value is preserved in WAT files
 							JSONObject httpHeaders = responseMetaData.getJSONObject("Headers");
 							JSONArray httpHeaderNames = httpHeaders.names();
 							for (int i = 0, l = httpHeaders.length(); i < l; i++) {
@@ -170,7 +182,10 @@ public class WATSampleOutLinks extends Configured implements Tool {
 											context.getCounter(COUNTER.LINKS_MALFORMED_URL).increment(1);
 										}
 									}
-									if (respectNofollow && meta.has("name") && meta.getString("name").equalsIgnoreCase("robots")) {
+									if (respectNofollow && meta.has("name") && (meta.getString("name")
+											.equalsIgnoreCase("robots")
+											|| (nofollowBotPattern != null
+													&& nofollowBotPattern.matcher(meta.getString("name")).matches()))) {
 										// check HTML meta "robots"
 										if (meta.has("content") && nofollowPattern.matcher(meta.getString("content")).find()) {
 											context.getCounter(COUNTER.RECORDS_NOFOLLOW_META_SKIPPED).increment(1);
@@ -383,7 +398,11 @@ public class WATSampleOutLinks extends Configured implements Tool {
 			System.err.println("  -Dwat.outlinks.max.per.page=n");
 			System.err.println("  \t\tmax. number of accepted outlinks per page");
 			System.err.println("  -Dwat.outlinks.respect.nofollow=<true|false>");
-			System.err.println("  \t\twhether to respect the nofollow link attribute");
+			System.err.println("  \t\twhether to respect the nofollow link attributes and robots metadata");
+			System.err.println("  -Dwat.outlinks.respect.nofollow.bot.pattern=mybot");
+			System.err.println("  \t\tuser-specific bot name(s) when respecting nofollow robots HTML metadata,");
+			System.err.println("  \t\tdefined as regular expression pattern. The nofollow metadata instructions");
+			System.err.println("  \t\tfor the matched bot(s) are respected in addition to those addressing any bot.");
 			return -1;
 		}
 		Path outputPath = null;
