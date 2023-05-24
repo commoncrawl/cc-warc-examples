@@ -95,7 +95,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 				String nofollowBotPatternString = conf.get("wat.outlinks.respect.nofollow.bot.pattern", "");
 				if (!nofollowBotPatternString.isBlank()) {
 					try {
-						nofollowBotPattern = Pattern.compile("\\s*" + nofollowBotPatternString + "\\s*");
+						nofollowBotPattern = Pattern.compile("\\s*" + nofollowBotPatternString + "\\s*",
+								Pattern.CASE_INSENSITIVE);
 					} catch (IllegalArgumentException e) {
 						LOG.error("Failed to compile wat.outlinks.respect.nofollow.bot.pattern", e);
 					}
