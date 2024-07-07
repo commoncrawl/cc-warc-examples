@@ -255,7 +255,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 					String urlStr = link.getString("url");
 					path:
 					switch (path) {
-						case "A@/href":
+					case "A@/href":
 						if (respectNofollow && link.has("rel") && nofollowPattern.matcher(link.getString("rel")).find()) {
 							context.getCounter(COUNTER.LINKS_REL_NOFOLLOW_SKIPPED).increment(1);
 							continue links;
@@ -327,7 +327,12 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		 *	   characters (U+0000 - U+001F) including '\t', '\r', '\n'
 		 */
 		public static boolean isSafeText(Text text) {
+			int pos = 0;
 			for (byte b : text.getBytes()) {
+				if (++pos > text.getLength()) {
+					// cf. Text#getBytes()
+					break;
+				}
 				if ((b & ~((byte) 0x1F)) == 0) {
 					// none of the leading 3 bits is set: 0x00 <= b <= 0x1F
 					return false;
