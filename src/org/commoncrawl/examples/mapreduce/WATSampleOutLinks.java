@@ -143,12 +143,29 @@ public class WATSampleOutLinks extends Configured implements Tool {
 							for (int i = 0, l = httpHeaders.length(); i < l; i++) {
 								String headerName = httpHeaderNames.getString(i);
 								if (headerName.equalsIgnoreCase("x-robots-tag")) {
-									String headerValue = httpHeaders.getString(headerName);
-									if (nofollowPattern.matcher(headerValue).find()) {
-										context.getCounter(COUNTER.RECORDS_NOFOLLOW_X_ROBOTS_SKIPPED).increment(1);
-										continue record;
+									Object headerValue = httpHeaders.get(headerName);
+									if (headerValue instanceof String) {
+										if (nofollowPattern.matcher((String) headerValue).find()) {
+											context.getCounter(COUNTER.RECORDS_NOFOLLOW_X_ROBOTS_SKIPPED).increment(1);
+											continue record;
+										}
+									} else if (headerValue instanceof JSONArray) {
+										for (int j = 0, L = ((JSONArray) headerValue).length(); j < L; j++) {
+											if (nofollowPattern.matcher(((JSONArray) headerValue).getString(j))
+													.find()) {
+												context.getCounter(COUNTER.RECORDS_NOFOLLOW_X_ROBOTS_SKIPPED)
+														.increment(1);
+												continue record;
+											}
+										}
+									} else {
+										LOG.error("Unexpected JSON value type when processing X-Robots-Tag: "
+												+ headerValue.getClass().getName());
 									}
-									break; // no need to iterate over further HTTP headers
+									/*
+									 * Note: continue to iterate over all HTTP headers because there might be
+									 * variants (lower/upper case) of the "X-Robots-Tag" header
+									 */
 								}
 							}
 						}
@@ -226,17 +243,17 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						context.getCounter(COUNTER.LINKS_PAGE_UNIQ_ACCEPTED).increment(n);
 					} catch (JSONException ex) {
 						context.getCounter(COUNTER.EXCEPTIONS_JSON).increment(1);
-						LOG.error("Caught JSONException", ex);
+						LOG.error("Caught JSONException while processing record for " + r.getHeader().getUrl(), ex);
 					} catch (MalformedURLException ex) {
-						LOG.error("Caught MalformedURLException", ex);
+						LOG.error("Caught MalformedURLException while processing record for " + r.getHeader().getUrl(),
+								ex);
 						context.getCounter(COUNTER.EXCEPTIONS_URL_MALFORMED).increment(1);
 					} catch (Exception ex) {
 						context.getCounter(COUNTER.EXCEPTIONS).increment(1);
-						LOG.error("Caught Exception", ex);
+						LOG.error("Caught Exception while processing record for " + r.getHeader().getUrl(), ex);
 					}
-				}
-				catch (Exception ex) {
-					LOG.error("Caught Exception", ex);
+				} catch (Exception ex) {
+					LOG.error("Caught Exception while processing record for " + r.getHeader().getUrl(), ex);
 					context.getCounter(COUNTER.EXCEPTIONS).increment(1);
 				}
 			}
