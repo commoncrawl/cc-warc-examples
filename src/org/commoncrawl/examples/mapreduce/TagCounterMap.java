@@ -1,6 +1,7 @@
 package org.commoncrawl.examples.mapreduce;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,18 +36,18 @@ public class TagCounterMap {
 			
 			for (ArchiveRecord r : value) {
 				try {
-					LOG.debug(r.getHeader().getUrl() + " -- " + r.available());
+					LOG.debug(r.getHeader().getUrl() + " -- " + r.available() + " -- " + r.getHeader().getMimetype());
 					// We're only interested in processing the responses, not requests or metadata
 					if (r.getHeader().getMimetype().equals("application/http; msgtype=response")) {
 						// Convenience function that reads the full message into a raw byte array
 						byte[] rawData = IOUtils.toByteArray(r, r.available());
-						String content = new String(rawData);
+						String content = new String(rawData, StandardCharsets.ISO_8859_1);
 						// The HTTP header gives us valuable information about what was received during the request
 						String headerText = content.substring(0, content.indexOf("\r\n\r\n"));
 						
 						// In our task, we're only interested in text/html, so we can be a little lax
 						// TODO: Proper HTTP header parsing + don't trust headers
-						if (headerText.contains("Content-Type: text/html")) {
+						if (headerText.toLowerCase().contains("content-type: text/html")) {
 							context.getCounter(MAPPERCOUNTER.RECORDS_IN).increment(1);
 							// Only extract the body of the HTTP response when necessary
 							// Due to the way strings work in Java, we don't use any more memory than before
