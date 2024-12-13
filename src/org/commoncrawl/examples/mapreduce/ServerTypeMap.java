@@ -9,6 +9,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.log4j.Logger;
 import org.archive.io.ArchiveReader;
 import org.archive.io.ArchiveRecord;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -38,15 +39,33 @@ public class ServerTypeMap {
 					String content = new String(rawData);
 					JSONObject json = new JSONObject(content);
 					try {
-						String server = json.getJSONObject("Envelope").getJSONObject("Payload-Metadata").getJSONObject("HTTP-Response-Metadata").getJSONObject("Headers").getString("Server");
-						outKey.set(server);
-						context.write(outKey, outVal);
+						String warcType = json.getJSONObject("Envelope").getJSONObject("WARC-Header-Metadata")
+								.getString("WARC-Type");
+						if (!warcType.equals("response")) {
+							continue;
+						}
+						JSONObject httpHeaders = json.getJSONObject("Envelope").getJSONObject("Payload-Metadata")
+								.getJSONObject("HTTP-Response-Metadata").getJSONObject("Headers");
+						JSONArray httpHeaderNames = httpHeaders.names();
+						for (int i = 0, l = httpHeaders.length(); i < l; i++) {
+							String headerName = httpHeaderNames.getString(i);
+							if (headerName.equalsIgnoreCase("server")) {
+								Object headerValue = httpHeaders.get(headerName);
+								if (headerValue instanceof JSONArray) {
+									for (int j = 0, L = ((JSONArray) headerValue).length(); j < L; j++) {
+										outKey.set(((JSONArray) headerValue).getString(j));
+										context.write(outKey, outVal);
+									}
+								} else {
+									outKey.set(headerValue.toString());
+									context.write(outKey, outVal);
+								}
+							}
+						}
 					} catch (JSONException ex) {
-						// If we reach here, the JSON object didn't have the header we were looking for
-						// There are likely better ways to check for json["Envelope"]["Payload-Metadata"][...] but this is concise
+						LOG.error("Failed to get HTTP header \"Server\" for " + r.getHeader().getUrl(), ex);
 					}
-				}
-				catch (Exception ex) {
+				} catch (Exception ex) {
 					LOG.error("Caught Exception", ex);
 					context.getCounter(MAPPERCOUNTER.EXCEPTIONS).increment(1);
 				}
