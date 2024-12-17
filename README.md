@@ -10,7 +10,7 @@ There are three examples for Hadoop processing:
 + [WAT files] Server response analysis using response metadata
 + [WET files] Classic word count example using extracted text
 
-All three assume initially that the files are stored locally in the data subdirectory but can be trivially modified to pull them down from Common Crawl's Amazon S3 bucket. To acquire the files, you can use any HTTP client or (if you are on AWS) the [AWS CLI](https://aws.amazon.com/cli/).
+For development, you likely want to start with input files stored locally in the `data/` subdirectory. To acquire the files, you can use any HTTP client or (if you are on AWS) the [AWS CLI](https://aws.amazon.com/cli/).
 
     mkdir data
     cd data/
@@ -23,12 +23,12 @@ or on AWS
     aws s3 cp s3://commoncrawl/crawl-data/CC-MAIN-2013-48/segments/1386163035819/warc/CC-MAIN-20131204131715-00000-ip-10-33-133-15.ec2.internal.warc.gz data/
     aws s3 cp s3://commoncrawl/crawl-data/CC-MAIN-2013-48/segments/1386163035819/wet/CC-MAIN-20131204131715-00000-ip-10-33-133-15.ec2.internal.warc.wet.gz data/
 
-To build and run:
+To build and run in [Hadoop local or non-distributed mode](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/SingleCluster.html#Standalone_Operation):
 
     mvn package
-    <path-to-hadoop>/bin/hadoop jar target/cc-warc-examples-0.3-SNAPSHOT-jar-with-dependencies.jar org.commoncrawl.examples.mapreduce.WETWordCount
+    <path-to-hadoop>/bin/hadoop jar target/cc-warc-examples-0.5-SNAPSHOT-jar-with-dependencies.jar org.commoncrawl.examples.mapreduce.WETWordCount -Dmapreduce.framework.name=local file:/tmp/cc/wet-word-count file:$PWD/data/*.wet.gz
     
-All three examples place output in the directory `/tmp/cc`.
+Note: all three examples require that you specify the output directory and all input files or directories.
       
 # License
 
