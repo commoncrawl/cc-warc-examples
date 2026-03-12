@@ -15,10 +15,11 @@ import org.json.JSONObject;
 
 public class ServerTypeMap {
 	private static final Logger LOG = Logger.getLogger(ServerTypeMap.class);
+
 	protected static enum MAPPERCOUNTER {
-		RECORDS_IN,
-		NO_SERVER,
-		EXCEPTIONS
+		RECORDS_IN, //
+		NO_SERVER, //
+		EXCEPTIONS //
 	}
 
 	protected static class ServerMapper extends Mapper<Text, ArchiveReader, Text, LongWritable> {
@@ -39,13 +40,16 @@ public class ServerTypeMap {
 					String content = new String(rawData);
 					JSONObject json = new JSONObject(content);
 					try {
-						String warcType = json.getJSONObject("Envelope").getJSONObject("WARC-Header-Metadata")
+						String warcType = json.getJSONObject("Envelope")
+								.getJSONObject("WARC-Header-Metadata")
 								.getString("WARC-Type");
 						if (!warcType.equals("response")) {
 							continue;
 						}
-						JSONObject httpHeaders = json.getJSONObject("Envelope").getJSONObject("Payload-Metadata")
-								.getJSONObject("HTTP-Response-Metadata").getJSONObject("Headers");
+						JSONObject httpHeaders = json.getJSONObject("Envelope")
+								.getJSONObject("Payload-Metadata")
+								.getJSONObject("HTTP-Response-Metadata")
+								.getJSONObject("Headers");
 						JSONArray httpHeaderNames = httpHeaders.names();
 						for (int i = 0, l = httpHeaders.length(); i < l; i++) {
 							String headerName = httpHeaderNames.getString(i);

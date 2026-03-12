@@ -13,11 +13,12 @@ import org.archive.io.ArchiveRecord;
 
 public class WordCounterMap {
 	private static final Logger LOG = Logger.getLogger(WordCounterMap.class);
+
 	protected static enum MAPPERCOUNTER {
-		RECORDS_IN,
-		EMPTY_PAGE_TEXT,
-		EXCEPTIONS,
-		NON_PLAIN_TEXT
+		RECORDS_IN, //
+		EMPTY_PAGE_TEXT, //
+		EXCEPTIONS, //
+		NON_PLAIN_TEXT //
 	}
 
 	protected static class WordCountMapper extends Mapper<Text, ArchiveReader, Text, LongWritable> {
@@ -48,8 +49,7 @@ public class WordCounterMap {
 					} else {
 						context.getCounter(MAPPERCOUNTER.NON_PLAIN_TEXT).increment(1);
 					}
-				}
-				catch (Exception ex) {
+				} catch (Exception ex) {
 					LOG.error("Caught Exception", ex);
 					context.getCounter(MAPPERCOUNTER.EXCEPTIONS).increment(1);
 				}

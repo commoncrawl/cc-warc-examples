@@ -33,39 +33,39 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Extract and randomly sample outlinks (links to pages, not image and media links) from WAT files.
+ * Extract and randomly sample outlinks (links to pages, not image and media links) from WAT
+ * files.
  */
 public class WATSampleOutLinks extends Configured implements Tool {
 
 	private static final Logger LOG = Logger.getLogger(WATSampleOutLinks.class);
 
 	protected static enum COUNTER {
-		RECORDS,
-		RESPONSE_RECORDS,
-		RECORDS_NON_HTML,
-		RECORDS_NOFOLLOW_X_ROBOTS_SKIPPED,
-		RECORDS_NOFOLLOW_META_SKIPPED,
-		EXCEPTIONS,
-		EXCEPTIONS_JSON,
-		EXCEPTIONS_URL_MALFORMED,
-		LINKS_PAGE_ACCEPTED,
-		LINKS_TOTAL,
-		LINKS_MEDIA_SKIPPED,
-		LINKS_REL_NOFOLLOW_SKIPPED,
-		LINKS_UNSAFE_SKIPPED,
-		LINKS_PAGE_UNIQ,
-		LINKS_PAGE_UNIQ_ACCEPTED,
-		LINKS_PAGE_UNIQ_SKIPPED_MAX_PER_PAGE,
-		LINKS_RANDOM_SKIP,
-		LINKS_RANDOM_SAMPLED,
-		LINKS_MALFORMED_URL,
+		RECORDS, //
+		RESPONSE_RECORDS, //
+		RECORDS_NON_HTML, //
+		RECORDS_NOFOLLOW_X_ROBOTS_SKIPPED, //
+		RECORDS_NOFOLLOW_META_SKIPPED, //
+		EXCEPTIONS, //
+		EXCEPTIONS_JSON, //
+		EXCEPTIONS_URL_MALFORMED, //
+		LINKS_PAGE_ACCEPTED, //
+		LINKS_TOTAL, //
+		LINKS_MEDIA_SKIPPED, //
+		LINKS_REL_NOFOLLOW_SKIPPED, //
+		LINKS_UNSAFE_SKIPPED, //
+		LINKS_PAGE_UNIQ, //
+		LINKS_PAGE_UNIQ_ACCEPTED, //
+		LINKS_PAGE_UNIQ_SKIPPED_MAX_PER_PAGE, //
+		LINKS_RANDOM_SKIP, //
+		LINKS_RANDOM_SAMPLED, //
+		LINKS_MALFORMED_URL, //
 		LINKS_UNSAFE_TEXT_SKIPPED /** URL contains tab or newline character */
 	}
 
 	private static final Pattern dataUriPattern = Pattern.compile("@/data-(?:href|uri)$");
 	private static final Pattern globalLinkPattern = Pattern.compile("^(?:[a-z][a-z0-9]{1,5}:)?//");
 	private static Pattern nofollowPattern = Pattern.compile("\\bnofollow\\b", Pattern.CASE_INSENSITIVE);
-
 
 	protected static class OutLinkMapper extends Mapper<Text, ArchiveReader, Text, LongWritable> {
 		private Text outKey = new Text();
@@ -83,9 +83,9 @@ public class WATSampleOutLinks extends Configured implements Tool {
 			Configuration conf = context.getConfiguration();
 			maxOutlinksPerPage = conf.getInt("wat.outlinks.max.per.page", 80);
 			/**
-			 * weighted link counts: each page can distributed `wat.outlinks.max.per.page`
-			 * points, links from pages with many links get a lower weight, the weight is
-			 * calculated as `wat.outlinks.max.per.page / num_links_of_page`
+			 * weighted link counts: each page can distributed `wat.outlinks.max.per.page` points, links
+			 * from pages with many links get a lower weight, the weight is calculated as
+			 * `wat.outlinks.max.per.page / num_links_of_page`
 			 */
 			outlinksWeightedCount = conf.getBoolean("wat.outlinks.weighted.count", false);
 			extractFeed = conf.getBoolean("wat.outlinks.extract.feed", false);
@@ -95,8 +95,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 				String nofollowBotPatternString = conf.get("wat.outlinks.respect.nofollow.bot.pattern", "");
 				if (!nofollowBotPatternString.isBlank()) {
 					try {
-						nofollowBotPattern = Pattern.compile("\\s*" + nofollowBotPatternString + "\\s*",
-								Pattern.CASE_INSENSITIVE);
+						nofollowBotPattern = Pattern
+								.compile("\\s*" + nofollowBotPatternString + "\\s*", Pattern.CASE_INSENSITIVE);
 					} catch (IllegalArgumentException e) {
 						LOG.error("Failed to compile wat.outlinks.respect.nofollow.bot.pattern", e);
 					}
@@ -106,8 +106,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 
 		@Override
 		public void map(Text key, ArchiveReader value, Context context) throws IOException {
-			record:
-			for (ArchiveRecord r : value) {
+			record: for (ArchiveRecord r : value) {
 				// Skip any records that are not JSON
 				if (!r.getHeader().getMimetype().equals("application/json")) {
 					continue record;
@@ -128,7 +127,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						String base = warcHeader.getString("WARC-Target-URI");
 						if (base.charAt(0) == '<') {
 							// some WARC file enclose the WARC-Target-URI in <...>
-							base = base.substring(1, (base.length()-2));
+							base = base.substring(1, (base.length() - 2));
 						}
 						URL baseUrl = new URL(base);
 						JSONObject responseMetaData = json.getJSONObject("Envelope")
@@ -159,12 +158,13 @@ public class WATSampleOutLinks extends Configured implements Tool {
 											}
 										}
 									} else {
-										LOG.error("Unexpected JSON value type when processing X-Robots-Tag: "
-												+ headerValue.getClass().getName());
+										LOG.error(
+												"Unexpected JSON value type when processing X-Robots-Tag: "
+														+ headerValue.getClass().getName());
 									}
 									/*
-									 * Note: continue to iterate over all HTTP headers because there might be
-									 * variants (lower/upper case) of the "X-Robots-Tag" header
+									 * Note: continue to iterate over all HTTP headers because there might be variants
+									 * (lower/upper case) of the "X-Robots-Tag" header
 									 */
 								}
 							}
@@ -205,7 +205,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 											|| (nofollowBotPattern != null
 													&& nofollowBotPattern.matcher(meta.getString("name")).matches()))) {
 										// check HTML meta "robots"
-										if (meta.has("content") && nofollowPattern.matcher(meta.getString("content")).find()) {
+										if (meta.has("content")
+												&& nofollowPattern.matcher(meta.getString("content")).find()) {
 											context.getCounter(COUNTER.RECORDS_NOFOLLOW_META_SKIPPED).increment(1);
 											continue record;
 										}
@@ -245,7 +246,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						context.getCounter(COUNTER.EXCEPTIONS_JSON).increment(1);
 						LOG.error("Caught JSONException while processing record for " + r.getHeader().getUrl(), ex);
 					} catch (MalformedURLException ex) {
-						LOG.error("Caught MalformedURLException while processing record for " + r.getHeader().getUrl(),
+						LOG.error(
+								"Caught MalformedURLException while processing record for " + r.getHeader().getUrl(),
 								ex);
 						context.getCounter(COUNTER.EXCEPTIONS_URL_MALFORMED).increment(1);
 					} catch (Exception ex) {
@@ -263,17 +265,16 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		private void addOutLinks(Context context, Collection<String> outLinks, URL baseUrl, JSONArray links)
 				throws JSONException {
 			context.getCounter(COUNTER.LINKS_TOTAL).increment(links.length());
-			links:
-			for (int i = 0, l = links.length(); i < l; i++) {
+			links: for (int i = 0, l = links.length(); i < l; i++) {
 				JSONObject link = links.getJSONObject(i);
 				if (link.has("url") && link.has("path")) {
 					String linkTypeMarker = "";
 					String path = link.getString("path");
 					String urlStr = link.getString("url");
-					path:
-					switch (path) {
+					path: switch (path) {
 					case "A@/href":
-						if (respectNofollow && link.has("rel") && nofollowPattern.matcher(link.getString("rel")).find()) {
+						if (respectNofollow && link.has("rel")
+								&& nofollowPattern.matcher(link.getString("rel")).find()) {
 							context.getCounter(COUNTER.LINKS_REL_NOFOLLOW_SKIPPED).increment(1);
 							continue links;
 						}
@@ -291,7 +292,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						continue links;
 					case "LINK@/href":
 						if (link.has("rel")) {
-							switch(link.getString("rel")) {
+							switch (link.getString("rel")) {
 							case "canonical":
 								break path;
 							case "alternate":
@@ -301,15 +302,14 @@ public class WATSampleOutLinks extends Configured implements Tool {
 								}
 								if (extractFeed && link.has("type")) {
 									String type = link.getString("type");
-									if ("application/atom+xml".equals(type)
-											|| "application/rss+xml".equals(type)) {
+									if ("application/atom+xml".equals(type) || "application/rss+xml".equals(type)) {
 										linkTypeMarker = extractFeedMarker;
 										break path;
 									}
 								}
 								// fall-through for other rel links
 							default:
-								 // ignore rels not explicitly listed
+								// ignore rels not explicitly listed
 								context.getCounter(COUNTER.LINKS_MEDIA_SKIPPED).increment(1);
 								continue links;
 							}
@@ -339,13 +339,12 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		}
 	}
 
-
 	protected static class OutLinkCombiner extends Reducer<Text, LongWritable, Text, LongWritable> {
 		private LongWritable outVal = new LongWritable(1);
 
 		/**
-		 * @return true if text is safe and does not contain any control
-		 *	   characters (U+0000 - U+001F) including '\t', '\r', '\n'
+		 * @return true if text is safe and does not contain any control characters (U+0000 - U+001F)
+		 *         including '\t', '\r', '\n'
 		 */
 		public static boolean isSafeText(Text text) {
 			int pos = 0;
@@ -363,8 +362,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		}
 
 		@Override
-		public void reduce(Text key, Iterable<LongWritable> values,
-				Context context) throws IOException, InterruptedException {
+		public void reduce(Text key, Iterable<LongWritable> values, Context context)
+				throws IOException, InterruptedException {
 			if (!isSafeText(key)) {
 				context.getCounter(COUNTER.LINKS_UNSAFE_TEXT_SKIPPED).increment(1);
 				return;
@@ -394,8 +393,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		}
 
 		@Override
-		public void reduce(Text key, Iterable<LongWritable> values,
-				Context context) throws IOException, InterruptedException {
+		public void reduce(Text key, Iterable<LongWritable> values, Context context)
+				throws IOException, InterruptedException {
 			if (!isSafeText(key)) {
 				context.getCounter(COUNTER.LINKS_UNSAFE_TEXT_SKIPPED).increment(1);
 				return;
@@ -404,7 +403,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 			for (LongWritable val : values) {
 				sum += val.get();
 			}
-			if (sampleProbability <= 0.0 || (sum*Math.random()) >= sampleProbability) {
+			if (sampleProbability <= 0.0 || (sum * Math.random()) >= sampleProbability) {
 				// multiply random by number of times outlink URL has been observed
 				outVal.set(sum);
 				context.write(key, outVal);
@@ -444,7 +443,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		return run(outputPath, inputPaths.toArray(new Path[inputPaths.size()]));
 	}
 
-	public int run(Path outputPath, Path[] inputPaths) throws IOException, ClassNotFoundException, InterruptedException {
+	public int run(Path outputPath, Path[] inputPaths)
+			throws IOException, ClassNotFoundException, InterruptedException {
 		Configuration conf = getConf();
 
 		Job job = Job.getInstance(conf);

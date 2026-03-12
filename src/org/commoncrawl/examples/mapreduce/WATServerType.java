@@ -26,9 +26,9 @@ import org.commoncrawl.warc.WARCFileInputFormat;
  */
 public class WATServerType extends Configured implements Tool {
 	private static final Logger LOG = Logger.getLogger(WATServerType.class);
-	
+
 	/**
-	 * Main entry point that uses the {@link ToolRunner} class to run the Hadoop job. 
+	 * Main entry point that uses the {@link ToolRunner} class to run the Hadoop job.
 	 */
 	public static void main(String[] args) throws Exception {
 		int res = ToolRunner.run(new Configuration(), new WATServerType(), args);
@@ -59,13 +59,14 @@ public class WATServerType extends Configured implements Tool {
 		return run(outputPath, inputPaths.toArray(new Path[inputPaths.size()]));
 	}
 
-	public int run(Path outputPath, Path[] inputPaths) throws IOException, ClassNotFoundException, InterruptedException {
+	public int run(Path outputPath, Path[] inputPaths)
+			throws IOException, ClassNotFoundException, InterruptedException {
 		Configuration conf = getConf();
 
 		Job job = Job.getInstance(conf);
 		job.setJarByClass(WATServerType.class);
 		job.setNumReduceTasks(1);
-		
+
 		for (int i = 0; i < inputPaths.length; i++) {
 			LOG.info("Input path: " + inputPaths[i]);
 			FileInputFormat.addInputPath(job, inputPaths[i]);
@@ -73,20 +74,20 @@ public class WATServerType extends Configured implements Tool {
 
 		LOG.info("Output path: " + outputPath);
 		FileOutputFormat.setOutputPath(job, outputPath);
-		
+
 		job.setInputFormatClass(WARCFileInputFormat.class);
 		job.setOutputFormatClass(TextOutputFormat.class);
-		
+
 		job.setOutputKeyClass(Text.class);
-	    job.setOutputValueClass(LongWritable.class);
-	    
-	    job.setMapperClass(ServerTypeMap.ServerMapper.class);
-	    job.setReducerClass(LongSumReducer.class);
-		
-	    if (job.waitForCompletion(true)) {
-	    	return 0;
-	    } else {
-	    	return 1;
-	    }
+		job.setOutputValueClass(LongWritable.class);
+
+		job.setMapperClass(ServerTypeMap.ServerMapper.class);
+		job.setReducerClass(LongSumReducer.class);
+
+		if (job.waitForCompletion(true)) {
+			return 0;
+		} else {
+			return 1;
+		}
 	}
 }

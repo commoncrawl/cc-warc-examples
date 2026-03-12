@@ -15,9 +15,10 @@ import org.archive.io.ArchiveRecord;
 
 public class TagCounterMap {
 	private static final Logger LOG = Logger.getLogger(TagCounterMap.class);
+
 	protected static enum MAPPERCOUNTER {
-		RECORDS_IN,
-		EXCEPTIONS
+		RECORDS_IN, //
+		EXCEPTIONS //
 	}
 
 	protected static class TagCounterMapper extends Mapper<Text, ArchiveReader, Text, LongWritable> {
@@ -33,7 +34,7 @@ public class TagCounterMap {
 		public void map(Text key, ArchiveReader value, Context context) throws IOException {
 			// Compile the regular expression once as it will be used continuously
 			patternTag = Pattern.compile(HTML_TAG_PATTERN);
-			
+
 			for (ArchiveRecord r : value) {
 				try {
 					LOG.debug(r.getHeader().getUrl() + " -- " + r.available() + " -- " + r.getHeader().getMimetype());
@@ -44,7 +45,7 @@ public class TagCounterMap {
 						String content = new String(rawData, StandardCharsets.ISO_8859_1);
 						// The HTTP header gives us valuable information about what was received during the request
 						String headerText = content.substring(0, content.indexOf("\r\n\r\n"));
-						
+
 						// In our task, we're only interested in text/html, so we can be a little lax
 						// TODO: Proper HTTP header parsing + don't trust headers
 						if (headerText.toLowerCase().contains("content-type: text/html")) {
@@ -61,8 +62,7 @@ public class TagCounterMap {
 							}
 						}
 					}
-				}
-				catch (Exception ex) {
+				} catch (Exception ex) {
 					LOG.error("Caught Exception", ex);
 					context.getCounter(MAPPERCOUNTER.EXCEPTIONS).increment(1);
 				}
