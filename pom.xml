@@ -3,7 +3,7 @@
 
   <groupId>org.commoncrawl</groupId>
   <artifactId>cc-warc-examples</artifactId>
-  <version>0.5-SNAPSHOT</version>
+  <version>0.6-SNAPSHOT</version>
   <packaging>jar</packaging>  
 
   <name>cc-warc-examples</name>
@@ -55,7 +55,7 @@
     <dependency>
       <groupId>org.netpreserve.commons</groupId>
       <artifactId>webarchive-commons</artifactId>
-      <version>1.2.0</version>
+      <version>3.0.2</version>
       <exclusions>
         <exclusion>
          <groupId>org.apache.hadoop</groupId>
@@ -84,15 +84,15 @@
       <plugin>
 	<groupId>org.apache.maven.plugins</groupId>
 	<artifactId>maven-compiler-plugin</artifactId>
-	<version>2.3.2</version>
+	<version>3.15.0</version>
 	<configuration>
-	  <source>1.7</source>
-	  <target>1.7</target>
+	  <source>11</source>
+	  <target>11</target>
 	</configuration>
       </plugin>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.4</version>
+        <version>3.8.0</version>
         <configuration>
           <descriptorRefs>
             <descriptorRef>jar-with-dependencies</descriptorRef>
@@ -110,12 +110,11 @@
       </plugin>
       <plugin>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>2.7</version>
+        <version>3.12.0</version>
         <configuration>
           <docfilessubdirs>true</docfilessubdirs>
           <excludedocfilessubdir>.svn</excludedocfilessubdir>
           <encoding>UTF-8</encoding>
-          <docEncoding>UTF-8</docEncoding>
         </configuration>
         <executions>
           <execution>
@@ -135,7 +134,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-source-plugin</artifactId>
-        <version>2.1.1</version>
+        <version>3.4.0</version>
         <executions>
           <execution>
             <goals>
@@ -147,7 +146,7 @@
       <plugin>
 	<groupId>org.apache.maven.plugins</groupId>
 	<artifactId>maven-release-plugin</artifactId>
-	<version>2.2.2</version>
+	<version>3.3.1</version>
       </plugin>
     </plugins>
   </build>
@@ -166,7 +165,7 @@
 	  <plugin>
 	    <groupId>org.apache.maven.plugins</groupId>
 	    <artifactId>maven-gpg-plugin</artifactId>
-	    <version>1.4</version>
+	    <version>3.2.8</version>
 	    <configuration>
 	      <passphrase>${gpg.passphrase}</passphrase>
 	    </configuration>
