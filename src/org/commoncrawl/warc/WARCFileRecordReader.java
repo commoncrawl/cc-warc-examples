@@ -15,9 +15,9 @@ import org.archive.io.ArchiveReader;
 import org.archive.io.warc.WARCReaderFactory;
 
 /**
- * The WARC File Record Reader processes a single compressed input.
- * The Record Reader returns a single WARC ArchiveReader that can contain
- * numerous individual documents, each document handled in a single mapper.
+ * The WARC File Record Reader processes a single compressed input. The Record Reader returns a
+ * single WARC ArchiveReader that can contain numerous individual documents, each document
+ * handled in a single mapper.
  *
  * @author Stephen Merity (Smerity)
  */
@@ -28,8 +28,7 @@ public class WARCFileRecordReader extends RecordReader<Text, ArchiveReader> {
 	private boolean hasBeenRead = false;
 
 	@Override
-	public void initialize(InputSplit inputSplit, TaskAttemptContext context)
-			throws IOException, InterruptedException {
+	public void initialize(InputSplit inputSplit, TaskAttemptContext context) throws IOException, InterruptedException {
 		FileSplit split = (FileSplit) inputSplit;
 		Configuration conf = context.getConfiguration();
 		Path path = split.getPath();

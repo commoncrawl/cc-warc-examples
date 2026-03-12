@@ -26,9 +26,9 @@ import org.commoncrawl.warc.WARCFileInputFormat;
  */
 public class WARCTagCounter extends Configured implements Tool {
 	private static final Logger LOG = Logger.getLogger(WARCTagCounter.class);
-	
+
 	/**
-	 * Main entry point that uses the {@link ToolRunner} class to run the Hadoop job. 
+	 * Main entry point that uses the {@link ToolRunner} class to run the Hadoop job.
 	 */
 	public static void main(String[] args) throws Exception {
 		int res = ToolRunner.run(new Configuration(), new WARCTagCounter(), args);
@@ -66,7 +66,7 @@ public class WARCTagCounter extends Configured implements Tool {
 		Job job = Job.getInstance(conf);
 		job.setJarByClass(WARCTagCounter.class);
 		job.setNumReduceTasks(1);
-		
+
 		for (int i = 0; i < inputPaths.length; i++) {
 			LOG.info("Input path: " + inputPaths[i]);
 			FileInputFormat.addInputPath(job, inputPaths[i]);
@@ -79,11 +79,11 @@ public class WARCTagCounter extends Configured implements Tool {
 		job.setOutputFormatClass(TextOutputFormat.class);
 
 		job.setOutputKeyClass(Text.class);
-	    job.setOutputValueClass(LongWritable.class);
-	    
-	    job.setMapperClass(TagCounterMap.TagCounterMapper.class);
-	    job.setReducerClass(LongSumReducer.class);
+		job.setOutputValueClass(LongWritable.class);
 
-	    return job.waitForCompletion(true) ? 0 : -1;
+		job.setMapperClass(TagCounterMap.TagCounterMapper.class);
+		job.setReducerClass(LongSumReducer.class);
+
+		return job.waitForCompletion(true) ? 0 : -1;
 	}
 }
