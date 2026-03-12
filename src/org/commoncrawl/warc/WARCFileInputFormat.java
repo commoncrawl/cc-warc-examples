@@ -12,8 +12,8 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.archive.io.ArchiveReader;
 
 /**
- * Minimal implementation of FileInputFormat for WARC files.
- * Hadoop is told that splitting these compressed files is not possible.
+ * Minimal implementation of FileInputFormat for WARC files. Hadoop is told that splitting these
+ * compressed files is not possible.
  *
  * @author Stephen Merity (Smerity)
  */
@@ -24,7 +24,7 @@ public class WARCFileInputFormat extends FileInputFormat<Text, ArchiveReader> {
 			throws IOException, InterruptedException {
 		return new WARCFileRecordReader();
 	}
-	
+
 	@Override
 	protected boolean isSplitable(JobContext context, Path filename) {
 		// As these are compressed files, they cannot be (sanely) split

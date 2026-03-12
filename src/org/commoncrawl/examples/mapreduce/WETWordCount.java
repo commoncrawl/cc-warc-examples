@@ -20,8 +20,7 @@ import org.apache.log4j.Logger;
 import org.commoncrawl.warc.WARCFileInputFormat;
 
 /**
- * Word count example using the extract text (WET) from the Common Crawl
- * dataset.
+ * Word count example using the extract text (WET) from the Common Crawl dataset.
  *
  * @author Stephen Merity (Smerity)
  */
@@ -29,8 +28,7 @@ public class WETWordCount extends Configured implements Tool {
 	private static final Logger LOG = Logger.getLogger(WETWordCount.class);
 
 	/**
-	 * Main entry point that uses the {@link ToolRunner} class to run the Hadoop
-	 * job.
+	 * Main entry point that uses the {@link ToolRunner} class to run the Hadoop job.
 	 */
 	public static void main(String[] args) throws Exception {
 		int res = ToolRunner.run(new Configuration(), new WETWordCount(), args);
