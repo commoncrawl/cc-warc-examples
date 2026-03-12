@@ -1,4 +1,4 @@
-![Common Crawl Logo](http://commoncrawl.org/wp-content/uploads/2016/12/logocommoncrawl.png)
+![Common Crawl Logo](https://avatars.githubusercontent.com/u/1194841?s=64)
 
 # Common Crawl WARC Examples
 
