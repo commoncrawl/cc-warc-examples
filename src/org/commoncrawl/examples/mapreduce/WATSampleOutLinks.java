@@ -295,6 +295,10 @@ public class WATSampleOutLinks extends Configured implements Tool {
 							case "canonical":
 								break path;
 							case "alternate":
+								if (link.has("hreflang")) {
+									// sample translations
+									break path;
+								}
 								if (extractFeed && link.has("type")) {
 									String type = link.getString("type");
 									if ("application/atom+xml".equals(type)
@@ -303,7 +307,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 										break path;
 									}
 								}
-								// fall-through for non-feed rel links
+								// fall-through for other rel links
 							default:
 								 // ignore rels not explicitly listed
 								context.getCounter(COUNTER.LINKS_MEDIA_SKIPPED).increment(1);
