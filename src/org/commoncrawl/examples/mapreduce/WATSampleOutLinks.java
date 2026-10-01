@@ -292,9 +292,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		}
 
 		/**
-		 * Parse the value of a HTTP header "Link" (RFC 8288) and add the links to Markdown documents in
-		 * the same format as used for HTML &lt;link&gt; elements in WAT files, e.g.
-		 * <code>{"path": "LINK@/href", "url": "/index.md", "rel": "alternate", "type": "text/markdown"}</code>
+		 * Parse the value of a HTTP header "Link" (RFC 8288) and add the links to the given JSONArray.
 		 */
 		protected static void parseHttpLinkHeader(String headerValue, JSONArray links) throws JSONException {
 			Matcher linkMatcher = httpLinkPattern.matcher(headerValue);
@@ -311,9 +309,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						link.put(name, val);
 					}
 				}
-				if (link.has("type") && matchesMediaType(link.getString("type"), "text/markdown")) {
-					links.put(link);
-				}
+				links.put(link);
 			}
 		}
 
