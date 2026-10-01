@@ -292,7 +292,7 @@ public class WATSampleOutLinks extends Configured implements Tool {
 		}
 
 		/**
-		 * Parse the value of a HTTP header "Link" (RFC 8288) and add the links to the given JSONArray.
+		 * Parse the value of a HTTP header "Link" (RFC 8288) and append the links to the given array.
 		 */
 		protected static void parseHttpLinkHeader(String headerValue, JSONArray links) throws JSONException {
 			Matcher linkMatcher = httpLinkPattern.matcher(headerValue);
