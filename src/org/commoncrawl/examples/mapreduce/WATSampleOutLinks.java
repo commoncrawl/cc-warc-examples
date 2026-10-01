@@ -309,7 +309,10 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						link.put(name, val);
 					}
 				}
-				links.put(link);
+				if (link.has("rel")) {
+					// the rel parameter is mandatory (RFC 8288), we skip malformed links without it
+					links.put(link);
+				}
 			}
 		}
 
