@@ -71,11 +71,6 @@
 			<version>3.4.3</version>
 			<scope>provided</scope>
 		</dependency>
-		<dependency>
-			<groupId>net.java.dev.jets3t</groupId>
-			<artifactId>jets3t</artifactId>
-			<version>0.9.4</version>
-		</dependency>
 	</dependencies>
 
 	<build>
