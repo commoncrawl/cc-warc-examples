@@ -7,7 +7,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
@@ -66,6 +68,11 @@ public class WATSampleOutLinks extends Configured implements Tool {
 	private static final Pattern dataUriPattern = Pattern.compile("@/data-(?:href|uri)$");
 	private static final Pattern globalLinkPattern = Pattern.compile("^(?:[a-z][a-z0-9]{1,5}:)?//");
 	private static Pattern nofollowPattern = Pattern.compile("\\bnofollow\\b", Pattern.CASE_INSENSITIVE);
+	/** single link in HTTP header "Link": <code>&lt;url&gt;; param=value; param="value"</code> */
+	private static final Pattern httpLinkPattern = Pattern
+			.compile("<([^>]*)>((?:\\s*;\\s*[^\\s;,=]+(?:\\s*=\\s*(?:\"[^\"]*\"|[^\\s;,\"]*))?)*)");
+	private static final Pattern httpLinkParamPattern = Pattern
+			.compile(";\\s*([^\\s;,=]+)(?:\\s*=\\s*(?:\"([^\"]*)\"|([^\\s;,\"]*)))?");
 
 	protected static class OutLinkMapper extends Mapper<Text, ArchiveReader, Text, LongWritable> {
 		private Text outKey = new Text();
@@ -175,6 +182,14 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						}
 						JSONObject htmlMetaData = responseMetaData.getJSONObject("HTML-Metadata");
 						Set<String> outLinks = new HashSet<>();
+						if (responseMetaData.has("Headers")) {
+							// HTTP header "Link", resolved against the target URI (not the HTML base URL)
+							addHttpHeaderOutLinks(
+									context,
+									outLinks,
+									baseUrl,
+									responseMetaData.getJSONObject("Headers"));
+						}
 						if (htmlMetaData.has("Head")) {
 							JSONObject head = htmlMetaData.getJSONObject("Head");
 							if (head.has("Base")) {
@@ -262,6 +277,76 @@ public class WATSampleOutLinks extends Configured implements Tool {
 
 		}
 
+		/**
+		 * @param type      value of the "type" attribute of a link, e.g.
+		 *                  <code>text/markdown; charset=utf-8</code>
+		 * @param mediaType expected media type, e.g. <code>text/markdown</code>
+		 * @return true if the type (ignoring case and parameters) is the expected media type
+		 */
+		protected static boolean matchesMediaType(String type, String mediaType) {
+			int paramStart = type.indexOf(';');
+			if (paramStart != -1) {
+				type = type.substring(0, paramStart);
+			}
+			return type.trim().equalsIgnoreCase(mediaType);
+		}
+
+		/**
+		 * Parse the value of a HTTP header "Link" (RFC 8288) and append the links to the given array.
+		 */
+		protected static void parseHttpLinkHeader(String headerValue, JSONArray links) throws JSONException {
+			Matcher linkMatcher = httpLinkPattern.matcher(headerValue);
+			while (linkMatcher.find()) {
+				JSONObject link = new JSONObject();
+				link.put("path", "LINK@/href");
+				link.put("url", linkMatcher.group(1).trim());
+				Matcher paramMatcher = httpLinkParamPattern.matcher(linkMatcher.group(2));
+				while (paramMatcher.find()) {
+					String name = paramMatcher.group(1).toLowerCase(Locale.ROOT);
+					String val = paramMatcher.group(2) != null ? paramMatcher.group(2) : paramMatcher.group(3);
+					if (val != null && !link.has(name)) {
+						// only the first occurrence of a parameter is used
+						link.put(name, val);
+					}
+				}
+				if (link.has("rel")) {
+					// the rel parameter is mandatory (RFC 8288), we skip malformed links without it
+					links.put(link);
+				}
+			}
+		}
+
+		/**
+		 * Add links to Markdown documents from the HTTP header "Link".
+		 */
+		private void addHttpHeaderOutLinks(
+				Context context,
+				Collection<String> outLinks,
+				URL baseUrl,
+				JSONObject httpHeaders) throws JSONException {
+			JSONArray httpHeaderNames = httpHeaders.names();
+			if (httpHeaderNames == null) {
+				return;
+			}
+			JSONArray links = new JSONArray();
+			for (int i = 0, l = httpHeaderNames.length(); i < l; i++) {
+				String headerName = httpHeaderNames.getString(i);
+				if (headerName.equalsIgnoreCase("link")) {
+					Object headerValue = httpHeaders.get(headerName);
+					if (headerValue instanceof String) {
+						parseHttpLinkHeader((String) headerValue, links);
+					} else if (headerValue instanceof JSONArray) {
+						for (int j = 0, L = ((JSONArray) headerValue).length(); j < L; j++) {
+							parseHttpLinkHeader(((JSONArray) headerValue).getString(j), links);
+						}
+					}
+				}
+			}
+			if (links.length() > 0) {
+				addOutLinks(context, outLinks, baseUrl, links);
+			}
+		}
+
 		private void addOutLinks(Context context, Collection<String> outLinks, URL baseUrl, JSONArray links)
 				throws JSONException {
 			context.getCounter(COUNTER.LINKS_TOTAL).increment(links.length());
@@ -291,6 +376,11 @@ public class WATSampleOutLinks extends Configured implements Tool {
 						context.getCounter(COUNTER.LINKS_MEDIA_SKIPPED).increment(1);
 						continue links;
 					case "LINK@/href":
+						if (link.has("type") && matchesMediaType(link.getString("type"), "text/markdown")) {
+							// sample links to Markdown documents (including llms.txt),
+							// independent of the value of the rel attribute
+							break path;
+						}
 						if (link.has("rel")) {
 							switch (link.getString("rel")) {
 							case "canonical":
@@ -302,7 +392,8 @@ public class WATSampleOutLinks extends Configured implements Tool {
 								}
 								if (extractFeed && link.has("type")) {
 									String type = link.getString("type");
-									if ("application/atom+xml".equals(type) || "application/rss+xml".equals(type)) {
+									if (matchesMediaType(type, "application/atom+xml")
+											|| matchesMediaType(type, "application/rss+xml")) {
 										linkTypeMarker = extractFeedMarker;
 										break path;
 									}
